@@ -1,0 +1,138 @@
+# STEP 1: SETUP
+from google.colab import drive
+drive.mount('/content/drive')
+
+!pip install ultralytics deep-sort-realtime opencv-python-headless -q
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import shutil
+from ultralytics import YOLO
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from sklearn.metrics.pairwise import cosine_similarity
+
+# STEP 2: PATHS
+QUERY_IMAGE_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/target.png"
+TEST_VIDEO_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/sample1.mp4"
+OUTPUT_VIDEO_PATH = "/content/output_test.mp4"
+DRIVE_OUTPUT_PATH = "/content/drive/MyDrive/HumanTrackingOutput/output_test.mp4"
+
+# STEP 3: IMAGE ENHANCEMENT
+def enhance_image(img):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(3.0, (8,8))
+    cl = clahe.apply(l)
+    return cv2.cvtColor(cv2.merge((cl, a, b)), cv2.COLOR_LAB2BGR)
+
+# STEP 4: GET QUERY EMBEDDING
+def get_query_embedding(image_path, yolo_model, deepsort):
+    img = cv2.imread(image_path)
+    img = enhance_image(img)
+    results = yolo_model(img)
+    for r in results:
+        for box in r.boxes:
+            if int(box.cls[0]) == 0 and float(box.conf[0]) > 0.5:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                crop = img[y1:y2, x1:x2]
+                if crop.size == 0: continue
+                emb = deepsort.embedder.predict([crop])[0]
+                plt.imshow(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+                plt.title("Query Person")
+                plt.axis('off')
+                plt.show()
+                return emb
+    raise ValueError("❌ No valid person in query image")
+
+# STEP 5: TRACK TARGET + ACCURACY
+def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
+    cap = cv2.VideoCapture(video_path)
+    out = None
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    target_id = None
+    frame_id = 0
+
+    matched_frames = 0
+    detection_frames = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_id += 1
+        frame = enhance_image(frame)
+
+        results = yolo_model(frame)
+        dets, crops = [], []
+
+        for r in results:
+            for box in r.boxes:
+                if int(box.cls[0]) != 0 or float(box.conf[0]) < 0.5:
+                    continue
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                crop = frame[y1:y2, x1:x2]
+                if crop.size == 0: continue
+                dets.append(([x1, y1, x2 - x1, y2 - y1], float(box.conf[0]), 'person'))
+                crops.append(crop)
+
+        embeds = deepsort.embedder.predict(crops) if crops else []
+        tracks = deepsort.update_tracks(dets, embeds=embeds, frame=frame)
+
+        best_track = None
+        best_sim = 0
+        best_box = None
+
+        for i, t in enumerate(tracks):
+            if not t.is_confirmed() or not hasattr(t, 'features') or not t.features:
+                continue
+            track_emb = t.features[-1]
+            sim = cosine_similarity([track_emb], [query_emb])[0][0]
+
+            if sim > best_sim:
+                best_sim = sim
+                best_track = t
+                best_box = t.to_ltrb()
+
+        if best_sim > 0.6:
+            detection_frames += 1
+
+            if target_id is None:
+                target_id = best_track.track_id
+                print(f"✅ Locked onto target ID {target_id} at frame {frame_id}")
+
+            if best_track.track_id == target_id:
+                matched_frames += 1
+                x1, y1, x2, y2 = map(int, best_box)
+                label = f'Target {target_id} ({best_sim:.2f})'
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+                cv2.putText(frame, label, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
+
+        if out is None:
+            h, w = frame.shape[:2]
+            out = cv2.VideoWriter(out_path, fourcc, 20.0, (w, h))
+        out.write(frame)
+
+    cap.release()
+    out.release()
+
+    if detection_frames > 0:
+        accuracy = (matched_frames / detection_frames) * 100
+        print(f"✅ Tracking Accuracy: {accuracy:.2f}% ({matched_frames}/{detection_frames} frames matched)")
+    else:
+        print("⚠️ Target person not detected in video.")
+
+# STEP 6: EXECUTION
+yolo_model = YOLO('yolov8n.pt')
+deepsort = DeepSort(max_age=90, n_init=2, embedder="mobilenet", half=True)
+
+try:
+    query_emb = get_query_embedding(QUERY_IMAGE_PATH, yolo_model, deepsort)
+except Exception as e:
+    print(e)
+    raise SystemExit
+
+track_locked_target(TEST_VIDEO_PATH, query_emb, yolo_model, deepsort, OUTPUT_VIDEO_PATH)
+shutil.move(OUTPUT_VIDEO_PATH, DRIVE_OUTPUT_PATH)
+print(f"✅ Video moved to Google Drive: {DRIVE_OUTPUT_PATH}")
