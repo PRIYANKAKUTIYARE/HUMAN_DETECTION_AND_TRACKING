@@ -1,9 +1,9 @@
 
-# ✅ STEP 1: INSTALL DEPENDENCIES
+# STEP 1: INSTALL DEPENDENCIES
 
 !pip install -q ultralytics deep_sort_realtime opencv-python-headless scikit-learn tqdm
 
-# ✅ STEP 2: IMPORT LIBRARIES
+# STEP 2: IMPORT LIBRARIES
 
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
@@ -14,10 +14,9 @@ from time import perf_counter
 from google.colab import drive
 from tqdm import tqdm
 
-# ✅ STEP 3: MOUNT GOOGLE DRIVE
+#  STEP 3: MOUNT GOOGLE DRIVE
 drive.mount('/content/drive')
 
-# ===============================================
 # ✅ STEP 4: SETUP PATHS
 # ===============================================
 ROOT = "/content/drive/MyDrive/human_detection_tracking_dataset"
