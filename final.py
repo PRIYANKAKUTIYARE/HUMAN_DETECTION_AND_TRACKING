@@ -1,11 +1,80 @@
-# === ADD THIS TO THE END OF YOUR EXISTING SCRIPT ===
+# ================================
+# ✅ STEP 1: SETUP
+# ================================
+from google.colab import drive
+drive.mount('/content/drive')
 
+!pip install ultralytics deep-sort-realtime opencv-python-headless -q
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import shutil
+from ultralytics import YOLO
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 
-# Variables to collect stats
-frame_stats = []
+# ================================
+# ✅ STEP 2: PATHS
+# ================================
+QUERY_IMAGE_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/target.png"
+TEST_VIDEO_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/sample1.mp4"
+OUTPUT_VIDEO_PATH = "/content/output_test.mp4"
+DRIVE_OUTPUT_PATH = "/content/drive/MyDrive/HumanTrackingOutput/output_test.mp4"
 
-# MODIFIED track_locked_target to collect metrics
+# # ================================
+# # ✅ STEP 3: IMAGE ENHANCEMENT
+# # ================================
+# def enhance_image(img):
+#     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+#     l, a, b = cv2.split(lab)
+#     clahe = cv2.createCLAHE(3.0, (8,8))
+#     cl = clahe.apply(l)
+#     return cv2.cvtColor(cv2.merge((cl, a, b)), cv2.COLOR_LAB2BGR)
+
+def enhance_image(img):
+    # Step 1: Convert to LAB and apply CLAHE to the L channel (brightness)
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+    lab_enhanced = cv2.merge((cl, a, b))
+    img_clahe = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
+
+    # Step 2: Apply Gamma Correction for better brightness boost
+    gamma = 1.5  # Try values between 1.2 and 2.0
+    invGamma = 1.0 / gamma
+    table = np.array([(i / 255.0) ** invGamma * 255 for i in np.arange(256)]).astype("uint8")
+    img_gamma = cv2.LUT(img_clahe, table)
+
+    return img_gamma
+
+# ================================
+# ✅ STEP 4: GET QUERY EMBEDDING
+# ================================
+def get_query_embedding(image_path, yolo_model, deepsort):
+    img = cv2.imread(image_path)
+    img = enhance_image(img)
+    results = yolo_model(img)
+    for r in results:
+        for box in r.boxes:
+            if int(box.cls[0]) == 0 and float(box.conf[0]) > 0.5:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                crop = img[y1:y2, x1:x2]
+                if crop.size == 0: continue
+                emb = deepsort.embedder.predict([crop])[0]
+                plt.imshow(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+                plt.title("Query Person")
+                plt.axis('off')
+                plt.show()
+                return emb
+    raise ValueError("❌ No valid person in query image")
+
+# ================================
+# ✅ STEP 5: TRACK & EVALUATE
+# ================================
 def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     cap = cv2.VideoCapture(video_path)
     out = None
@@ -16,8 +85,8 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     total_frames = 0
     false_positives = 0
     total_detections = 0
-
     frame_id = 0
+
     sim_list, id_list, frame_id_list = [], [], []
 
     while cap.isOpened():
@@ -50,7 +119,6 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
             track_emb = t.features[-1]
             sim = cosine_similarity([track_emb], [query_emb])[0][0]
 
-            # Log for plots
             sim_list.append(sim)
             id_list.append(t.track_id)
             frame_id_list.append(frame_id)
@@ -80,68 +148,82 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     out.release()
     print("✅ Done. Output saved.")
 
-    # Save stats
-    accuracy = correct_detections / total_frames if total_frames else 0
-    precision = correct_detections / total_detections if total_detections else 0
-    recall = correct_detections / total_frames if total_frames else 0
+    # =========================
+    # ✅ METRICS CALCULATION
+    # =========================
+    TP = correct_detections
+    FP = false_positives
+    FN = total_frames - correct_detections
+    TN = 0  # not measurable without full labels
 
-    print(f"\n📊 Metrics:")
-    print(f"Frames: {total_frames}")
-    print(f"Target Detections: {total_detections}")
-    print(f"Correct Detections: {correct_detections}")
-    print(f"False Positives: {false_positives}")
-    print(f"✅ Accuracy: {accuracy:.2%}")
+    accuracy = TP / total_frames if total_frames else 0
+    precision = TP / (TP + FP) if (TP + FP) else 0
+    recall = TP / (TP + FN) if (TP + FN) else 0
+    f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
+
+    print("\n📊 Confusion Matrix Metrics:")
+    print(f"True Positives (TP): {TP}")
+    print(f"False Positives (FP): {FP}")
+    print(f"False Negatives (FN): {FN}")
+    print(f"True Negatives (TN): Not applicable")
+
+    print("\n📈 Classification Report:")
+    print(f"✅ Accuracy : {accuracy:.2%}")
     print(f"✅ Precision: {precision:.2%}")
-    print(f"✅ Recall: {recall:.2%}")
+    print(f"✅ Recall   : {recall:.2%}")
+    print(f"✅ F1 Score : {f1_score:.2%}")
 
-    # Graphs
-    plot_df = pd.DataFrame({
+    # =========================
+    # ✅ PLOTS
+    # =========================
+    df = pd.DataFrame({
         'Frame': frame_id_list,
         'Similarity': sim_list,
         'Track ID': id_list
     })
 
-    plt.figure(figsize=(10,4))
-    plt.plot(plot_df['Frame'], plot_df['Similarity'], label='Cosine Similarity')
+    # Similarity Plot
+    plt.figure(figsize=(10, 4))
+    plt.plot(df['Frame'], df['Similarity'], label='Similarity')
     plt.axhline(0.5, color='red', linestyle='--', label='Threshold')
-    plt.title('Similarity with Query over Frames')
+    plt.title('Similarity with Query Over Time')
     plt.xlabel('Frame')
     plt.ylabel('Cosine Similarity')
     plt.legend()
     plt.grid(True)
     plt.show()
 
-    plt.figure(figsize=(10,4))
-    plt.plot(plot_df['Frame'], plot_df['Track ID'], label='Track ID')
-    plt.title('Track ID over Time')
+    # Track ID Plot
+    plt.figure(figsize=(10, 4))
+    plt.plot(df['Frame'], df['Track ID'], label='Track ID')
+    plt.title('Track ID Over Frames')
     plt.xlabel('Frame')
     plt.ylabel('Track ID')
     plt.grid(True)
     plt.show()
 
+    # Confusion Matrix Plot
+    conf_matrix = np.array([[TP, FP],
+                            [FN, 0]])  # TN unknown
+    plt.figure(figsize=(5, 4))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',
+                xticklabels=['Predicted:Yes', 'Predicted:No'],
+                yticklabels=['Actual:Yes', 'Actual:No'])
+    plt.title("Confusion Matrix (Partial)")
+    plt.show()
 
+# ================================
+# ✅ STEP 6: RUN EVERYTHING
+# ================================
+yolo_model = YOLO('yolov8n.pt')  # You can change to yolov8s.pt, etc.
+deepsort = DeepSort(max_age=90, n_init=2, embedder="mobilenet", half=True)
 
-# Confusion matrix calculation
-TP = correct_detections                         # Correct match of person
-FP = false_positives                            # Wrong match (wrong similarity/ID)
-FN = total_frames - correct_detections          # Missed frames
-TN = 0  # Not computable without full ground truth
+try:
+    query_emb = get_query_embedding(QUERY_IMAGE_PATH, yolo_model, deepsort)
+except Exception as e:
+    print(e)
+    raise SystemExit
 
-# Metrics
-accuracy = TP / total_frames if total_frames else 0
-precision = TP / (TP + FP) if (TP + FP) else 0
-recall = TP / (TP + FN) if (TP + FN) else 0
-f1_score = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
-
-# Report Confusion Matrix and Metrics
-print("\n📊 Confusion Matrix Metrics:")
-print(f"True Positives (TP): {TP}")
-print(f"False Positives (FP): {FP}")
-print(f"False Negatives (FN): {FN}")
-print(f"True Negatives (TN): Not applicable without ground truth")
-
-print("\n📈 Classification Report:")
-print(f"✅ Accuracy : {accuracy:.2%}")
-print(f"✅ Precision: {precision:.2%}")
-print(f"✅ Recall   : {recall:.2%}")
-print(f"✅ F1 Score : {f1_score:.2%}")
+track_locked_target(TEST_VIDEO_PATH, query_emb, yolo_model, deepsort, OUTPUT_VIDEO_PATH)
+shutil.move(OUTPUT_VIDEO_PATH, DRIVE_OUTPUT_PATH)
+print(f"📁 Output video saved to: {DRIVE_OUTPUT_PATH}")
