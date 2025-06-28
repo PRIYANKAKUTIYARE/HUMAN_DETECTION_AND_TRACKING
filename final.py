@@ -1,6 +1,6 @@
-# ================================
-# ✅ STEP 1: SETUP
-# ================================
+
+#  STEP 1: SETUP
+
 from google.colab import drive
 drive.mount('/content/drive')
 
