@@ -24,8 +24,8 @@ TEST_VIDEO_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/sample1.mp4"
 OUTPUT_VIDEO_PATH = "/content/output_test.mp4"
 DRIVE_OUTPUT_PATH = "/content/drive/MyDrive/HumanTrackingOutput/output_test.mp4"
 
-# # ✅ STEP 3: IMAGE ENHANCEMENT
-# # ================================
+#  STEP 3: IMAGE ENHANCEMENT
+
 # def enhance_image(img):
 #     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
 #     l, a, b = cv2.split(lab)
