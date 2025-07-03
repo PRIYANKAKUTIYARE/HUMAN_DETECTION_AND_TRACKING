@@ -16,9 +16,9 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 
-# ================================
-# ✅ STEP 2: PATHS
-# ================================
+
+#  STEP 2: PATHS
+
 QUERY_IMAGE_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/target.png"
 TEST_VIDEO_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/sample1.mp4"
 OUTPUT_VIDEO_PATH = "/content/output_test.mp4"
