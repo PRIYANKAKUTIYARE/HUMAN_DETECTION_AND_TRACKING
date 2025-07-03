@@ -24,7 +24,6 @@ TEST_VIDEO_PATH = "/content/drive/MyDrive/HumanTrackingOutput/test/sample1.mp4"
 OUTPUT_VIDEO_PATH = "/content/output_test.mp4"
 DRIVE_OUTPUT_PATH = "/content/drive/MyDrive/HumanTrackingOutput/output_test.mp4"
 
-# # ================================
 # # ✅ STEP 3: IMAGE ENHANCEMENT
 # # ================================
 # def enhance_image(img):
