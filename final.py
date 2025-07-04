@@ -51,8 +51,8 @@ def enhance_image(img):
     return img_gamma
 
 
-# ✅ STEP 4: GET QUERY EMBEDDING
-# ================================
+# STEP 4: GET QUERY EMBEDDING
+
 def get_query_embedding(image_path, yolo_model, deepsort):
     img = cv2.imread(image_path)
     img = enhance_image(img)
