@@ -50,7 +50,7 @@ def enhance_image(img):
 
     return img_gamma
 
-# ================================
+
 # ✅ STEP 4: GET QUERY EMBEDDING
 # ================================
 def get_query_embedding(image_path, yolo_model, deepsort):
