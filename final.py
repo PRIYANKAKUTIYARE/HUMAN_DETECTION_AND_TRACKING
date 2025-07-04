@@ -71,9 +71,9 @@ def get_query_embedding(image_path, yolo_model, deepsort):
                 return emb
     raise ValueError("❌ No valid person in query image")
 
-# ================================
-# ✅ STEP 5: TRACK & EVALUATE
-# ================================
+
+#  STEP 5: TRACK & EVALUATE
+
 def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     cap = cv2.VideoCapture(video_path)
     out = None
@@ -124,7 +124,7 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
 
             if target_id is None and sim > 0.6:
                 target_id = t.track_id
-                print(f"✅ Locked onto target ID {target_id} at frame {frame_id}")
+                print(f" Locked onto target ID {target_id} at frame {frame_id}")
 
             if t.track_id == target_id:
                 total_detections += 1
@@ -145,7 +145,7 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
 
     cap.release()
     out.release()
-    print("✅ Done. Output saved.")
+    print(" Done. Output saved.")
 
     # =========================
     # ✅ METRICS CALCULATION
