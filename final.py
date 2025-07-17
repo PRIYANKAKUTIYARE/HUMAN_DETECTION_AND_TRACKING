@@ -148,7 +148,7 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     print(" Done. Output saved.")
 
     #  METRICS CALCULATION
-    # =========================
+    
     TP = correct_detections
     FP = false_positives
     FN = total_frames - correct_detections
