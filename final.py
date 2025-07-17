@@ -168,8 +168,8 @@ def track_locked_target(video_path, query_emb, yolo_model, deepsort, out_path):
     print("\n📈 Classification Report:")
     print(f" Accuracy : {accuracy:.2%}")
     print(f" Precision: {precision:.2%}")
-    print(f"✅ Recall   : {recall:.2%}")
-    print(f"✅ F1 Score : {f1_score:.2%}")
+    print(f" Recall   : {recall:.2%}")
+    print(f" F1 Score : {f1_score:.2%}")
 
     # =========================
     # ✅ PLOTS
