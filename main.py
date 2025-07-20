@@ -1,26 +1,4 @@
 
-def video_writer_same_codec(video: cv2.VideoCapture, save_path: str) -> cv2.VideoWriter:
-    w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = video.get(cv2.CAP_PROP_FPS)
-    codec = cv2.VideoWriter_fourcc(*"mp4v")
-    return cv2.VideoWriter(save_path, codec, fps, (w, h))
-
-# ===============================================
-# ✅ STEP 6: TRACKING FUNCTION WITH HIGH PRECISION
-# ===============================================
-def track_and_evaluate(video_path, save_path, model, tracker):
-    cap = cv2.VideoCapture(video_path)
-    out = video_writer_same_codec(cap, save_path)
-
-    preds, truths = [], []
-    frame_count, total_time = 0, 0
-
-    while True:
-        start = perf_counter()
-        ret, frame = cap.read()
-        if not ret:
-            break
 
         results = model.predict(frame, conf=0.4, iou=0.45, classes=0, verbose=False)[0]
         detections = results.boxes.data.cpu().numpy()
