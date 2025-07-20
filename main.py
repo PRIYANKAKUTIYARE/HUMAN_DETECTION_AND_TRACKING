@@ -1,21 +1,4 @@
 
-#
-
-# ✅ STEP 4: SETUP PATHS
-# ===============================================
-ROOT = "/content/drive/MyDrive/human_detection_tracking_dataset"
-TRAIN_DIR = os.path.join(ROOT, "train")
-TEST_DIR = os.path.join(ROOT, "test")
-
-train_files = [f for f in os.listdir(TRAIN_DIR) if f.endswith(".mp4")]
-test_files = [f for f in os.listdir(TEST_DIR) if f.endswith(".mp4")]
-
-if not test_files:
-    raise FileNotFoundError("❌ No .mp4 files found in test folder.")
-
-# ===============================================
-# ✅ STEP 5: VIDEO WRITER FUNCTION
-# ===============================================
 def video_writer_same_codec(video: cv2.VideoCapture, save_path: str) -> cv2.VideoWriter:
     w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
