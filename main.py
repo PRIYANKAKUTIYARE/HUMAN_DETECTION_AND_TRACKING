@@ -43,8 +43,8 @@
 
     return precision, accuracy
 
-# ===============================================
-# ✅ STEP 7: INIT YOLOv8 (HIGH ACCURACY) + DeepSORT
+
+ STEP 7: INIT YOLOv8 (HIGH ACCURACY) + DeepSORT
 
 model = YOLO("yolov8m.pt")  # 👈 More accurate than yolov8n/s
 tracker = DeepSort(max_age=50, n_init=3, nms_max_overlap=1.0)
